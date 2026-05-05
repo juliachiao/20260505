@@ -1,7 +1,7 @@
 let capture;
 let faceMesh;
 let faces = [];
-let stars = []; // 用於儲存星空座標
+let stars = []; // 儲存星星座標
 
 // --- 點位編號設定 ---
 let lipOuter = [409, 270, 269, 267, 0, 37, 39, 40, 185, 61, 146, 91, 181, 84, 17, 314, 405, 321, 375, 291];
@@ -12,20 +12,28 @@ let rightEyeOuter = [359, 467, 260, 259, 257, 258, 286, 414, 463, 341, 256, 252,
 let rightEyeInner = [263, 466, 388, 387, 386, 385, 384, 398, 362, 382, 381, 380, 374, 373, 390, 249];
 
 function preload() {
+  // 初始化 FaceMesh，開啟水平翻轉
   faceMesh = ml5.faceMesh({ flipped: true });
 }
 
 function setup() {
   createCanvas(windowWidth, windowHeight);
+  
+  // 建立星空背景資料
+  for (let i = 0; i < 200; i++) {
+    stars.push({
+      x: random(width),
+      y: random(height),
+      size: random(1, 3),
+      brightness: random(150, 255)
+    });
+  }
+
   capture = createCapture(VIDEO);
   capture.size(640, 480);
   capture.hide();
-  faceMesh.detectStart(capture, gotFaces);
 
-  // 初始化星空背景
-  for (let i = 0; i < 200; i++) {
-    stars.push({ x: random(width), y: random(height), size: random(1, 3) });
-  }
+  faceMesh.detectStart(capture, gotFaces);
 }
 
 function gotFaces(results) {
@@ -34,14 +42,14 @@ function gotFaces(results) {
 
 function draw() {
   // 1. 繪製星空背景
-  background(10, 10, 30); // 深藍色夜空背景
+  background(10, 10, 35); // 深藍黑色背景
   noStroke();
-  fill(255);
   for (let s of stars) {
+    fill(255, 255, 255, s.brightness);
     ellipse(s.x, s.y, s.size);
   }
 
-  // 2. 顯示個人資訊 (白色文字以契合星空)
+  // 2. 顯示個人資訊文字 (改為白色以利於星空辨識)
   fill(255);
   textSize(24);
   textAlign(CENTER, TOP);
@@ -63,26 +71,27 @@ function draw() {
   }
   pop();
 
-  // 4. 繪製臉部辨識線條
+  // 4. 繪製臉部辨識特徵
   if (faces.length > 0) {
     let face = faces[0];
 
-    // --- A. 先畫全臉黃色網格 (細線) ---
-    stroke(255, 255, 0); 
-    strokeWeight(1); // 網格用細一點比較精緻
-    for (let i = 0; i < face.keypoints.length; i++) {
+    // --- 黃色全臉網格線條 ---
+    stroke(255, 255, 0); // 黃色
+    strokeWeight(1);    // 細線
+    noFill();
+    // 繪製臉部所有關鍵點的簡單連線 (網格感)
+    for (let i = 0; i < face.keypoints.length; i += 5) {
       let kp = face.keypoints[i];
       let x = map(kp.x, 0, capture.width, offsetX, offsetX + imgW);
       let y = map(kp.y, 0, capture.height, offsetY, offsetY + imgH);
-      point(x, y); // 畫出黃色網格點
+      point(x, y); 
     }
 
-    // --- B. 繪製紅色重點部位 (粗線 10) ---
-    stroke(255, 0, 0); 
+    // --- 紅色重點部位 (粗度 10) ---
+    stroke(255, 0, 0); // 紅色
     strokeWeight(10);
     strokeJoin(ROUND);
-    noFill();
-
+    
     drawFeature(face, lipOuter, offsetX, offsetY, imgW, imgH);
     drawFeature(face, lipInner, offsetX, offsetY, imgW, imgH);
     drawFeature(face, leftEyeOuter, offsetX, offsetY, imgW, imgH);
@@ -108,4 +117,9 @@ function drawFeature(faceData, indices, offsetX, offsetY, imgW, imgH) {
 
 function windowResized() {
   resizeCanvas(windowWidth, windowHeight);
+  // 重新調整視窗時重新產生星星位置，確保鋪滿螢幕
+  stars = [];
+  for (let i = 0; i < 200; i++) {
+    stars.push({x: random(width), y: random(height), size: random(1, 3), brightness: random(150, 255)});
+  }
 }
