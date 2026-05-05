@@ -11,8 +11,8 @@ let rightEyeOuter = [359, 467, 260, 259, 257, 258, 286, 414, 463, 341, 256, 252,
 let rightEyeInner = [263, 466, 388, 387, 386, 385, 384, 398, 362, 382, 381, 380, 374, 373, 390, 249];
 
 function preload() {
-  // 初始化 FaceMesh，這裡暫時不設定 flipped: true，我們在 draw 裡面手動處理
-  faceMesh = ml5.faceMesh();
+  // 核心修正 1：在這裡就設定 flipped: true，讓偵測點位直接與鏡像後的影像同步
+  faceMesh = ml5.faceMesh({ flipped: true });
 }
 
 function setup() {
@@ -30,33 +30,32 @@ function gotFaces(results) {
 function draw() {
   background('#e7c6ff');
   
-  // 1. 顯示個人資訊
-  push();
+  // 顯示個人資訊
   fill(0);
   textSize(24);
-  textAlign(CENTER);
+  textAlign(CENTER, TOP);
   textStyle(BOLD);
-  text("科系:教育科技學系  學號: 413737015  姓名: 季子蕎", width / 2, 50);
-  pop();
+  text("科系:教育科技學系  學號: 413737015  姓名: 季子蕎", width / 2, 20);
 
-  // 2. 計算 60% 影像尺寸
+  // 計算 60% 影像尺寸
   let imgW = width * 0.6;
   let imgH = height * 0.6;
-
-  // 3. 繪製區塊
-  push();
-  translate(width / 2, height / 2); // 移到畫布中心
   
-  // 先畫攝影機影像 (置中且鏡像)
+  // 計算影像在畫布上的左上角起始點 (用於座標補償)
+  let offsetX = (width - imgW) / 2;
+  let offsetY = (height - imgH) / 2;
+
+  // 1. 繪製攝影機影像 (置中且鏡像)
   push();
-  scale(-1, 1); 
+  translate(width / 2, height / 2);
+  scale(-1, 1); // 水平翻轉
   imageMode(CENTER);
   if (capture.loadedmetadata) {
     image(capture, 0, 0, imgW, imgH);
   }
   pop();
 
-  // 4. 繪製臉部特徵 (關鍵修正：座標映射)
+  // 2. 繪製臉部特徵
   if (faces.length > 0) {
     let face = faces[0];
     noFill();
@@ -64,28 +63,27 @@ function draw() {
     strokeWeight(10);
     strokeJoin(ROUND);
 
-    // 同步繪製所有特徵
-    drawFeature(face, lipOuter, imgW, imgH);
-    drawFeature(face, lipInner, imgW, imgH);
-    drawFeature(face, leftEyeOuter, imgW, imgH);
-    drawFeature(face, leftEyeInner, imgW, imgH);
-    drawFeature(face, rightEyeOuter, imgW, imgH);
-    drawFeature(face, rightEyeInner, imgW, imgH);
+    // 繪製所有部位
+    drawFeature(face, lipOuter, offsetX, offsetY, imgW, imgH);
+    drawFeature(face, lipInner, offsetX, offsetY, imgW, imgH);
+    drawFeature(face, leftEyeOuter, offsetX, offsetY, imgW, imgH);
+    drawFeature(face, leftEyeInner, offsetX, offsetY, imgW, imgH);
+    drawFeature(face, rightEyeOuter, offsetX, offsetY, imgW, imgH);
+    drawFeature(face, rightEyeInner, offsetX, offsetY, imgW, imgH);
   }
-  pop();
 }
 
-function drawFeature(faceData, indices, imgW, imgH) {
+function drawFeature(faceData, indices, offsetX, offsetY, imgW, imgH) {
   beginShape();
   for (let i = 0; i < indices.length; i++) {
     let index = indices[i];
     let keypoint = faceData.keypoints[index];
     if (keypoint) {
-      // 關鍵修正：
-      // 因為外面影像用了 scale(-1, 1)，座標映射時 X 軸要反向映射，線條才會對準翻轉後的臉
-      // 映射範圍從 (0, capture.width) 對應到 (imgW/2, -imgW/2)
-      let x = map(keypoint.x, 0, capture.width, imgW / 2, -imgW / 2);
-      let y = map(keypoint.y, 0, capture.height, -imgH / 2, imgH / 2);
+      // 核心修正 2：
+      // 因為 preload 已經設定 flipped: true，所以偵測到的 x 已經是鏡像後的。
+      // 我們直接將偵測點映射到畫布上影像所在的實際區域即可。
+      let x = map(keypoint.x, 0, capture.width, offsetX, offsetX + imgW);
+      let y = map(keypoint.y, 0, capture.height, offsetY, offsetY + imgH);
       vertex(x, y);
     }
   }
